@@ -122,17 +122,13 @@
 
     <div id="imagePreviewContainer"></div>
 
-    {% if result %}
-    <div class="result-box">
-      🍊 <strong>Detected Fruits:</strong> {{ result }}
-    </div>
-    {% endif %}
+    {% if result_image %}
+<div class="mt-8 text-center">
+  <h2 class="text-2xl font-bold text-green-400 mb-4">Detected Fruits 🍎</h2>
+  <img src="{{ url_for('send_uploaded_file', filename=result_image) }}" class="rounded-lg mx-auto border border-green-400 shadow-lg">
+</div>
+{% endif %}
 
-    {% if detected_image %}
-    <div class="mt-4">
-      <img src="{{ url_for('static', filename=detected_image) }}" class="detected" alt="Detected Image with Boxes">
-    </div>
-    {% endif %}
   </div>
 
   <script>

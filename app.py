@@ -1,54 +1,65 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, send_from_directory
 from ultralytics import YOLO
 import os
+import cv2
+import uuid
 
 app = Flask(__name__)
-model = YOLO("model/fruit_detection.pt")
 
-UPLOAD_FOLDER = 'static/uploads'
+# Static and upload folders
+UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# Load model
+model_path = os.path.join(app.root_path, "model", "fruit_detection.pt")
+model = YOLO(model_path)
+
 @app.route('/')
-def index():
+def home():
     return render_template('index.html')
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    # Check file uploaded
     if 'file' not in request.files:
-        return render_template('index.html', result="⚠️ No file selected")
+        return "No file uploaded", 400
 
     file = request.files['file']
     if file.filename == '':
-        return render_template('index.html', result="⚠️ No file selected")
+        return "No file selected", 400
 
-    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-    file.save(filepath)
+    # Save uploaded image
+    file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(file_path)
 
-    # Run YOLO detection
-    results = model(filepath)
+    # Run YOLO model prediction
+    results = model.predict(file_path, save=False)
 
+    # Get first result
     boxes = results[0].boxes
-    detected_items = []
+    img = cv2.imread(file_path)
 
-    if boxes is not None and len(boxes) > 0:
-        for cls_id, conf in zip(boxes.cls.cpu().numpy(), boxes.conf.cpu().numpy()):
-            name = results[0].names[int(cls_id)]
-            conf_percent = round(float(conf) * 100, 2)
-            detected_items.append(f"{name} ({conf_percent}%)")
+    # Draw boxes and accuracy
+    for box in boxes:
+        x1, y1, x2, y2 = map(int, box.xyxy[0])
+        conf = float(box.conf[0])
+        label = str(box.cls[0])
+        name = results[0].names[int(label)]
+        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.putText(img, f"{name} {conf:.2f}", (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
-        detected_str = ', '.join(detected_items)
+    # Save prediction image
+    output_filename = f"predicted_{uuid.uuid4().hex}.jpg"
+    output_path = os.path.join(UPLOAD_FOLDER, output_filename)
+    cv2.imwrite(output_path, img)
 
-        # Save image with bounding boxes
-        output_path = os.path.join(UPLOAD_FOLDER, "detected_" + file.filename)
-        results[0].save(filename=output_path)
+    # Return result
+    return render_template('index.html', result_image=output_filename)
 
-        # Just send the filename (not full path)
-        detected_image = "uploads/detected_" + file.filename
-    else:
-        detected_str = "No fruits detected"
-        detected_image = None
-
-    return render_template('index.html', result=detected_str, detected_image=detected_image)
+@app.route('/static/uploads/<filename>')
+def send_uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000)
