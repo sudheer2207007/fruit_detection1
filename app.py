@@ -1,11 +1,11 @@
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
 import streamlit as st
 from ultralytics import YOLO
 import numpy as np
 from PIL import Image
 import cv2
-import os
 import base64
 
 # ==============================
@@ -70,13 +70,9 @@ with tab1:
         st.image(img, caption="📸 Uploaded Image", width=400)
 
         with st.spinner("Detecting fruits..."):
-            # Run detection
-            results = model.predict(img_np, conf=0.25)  # set confidence threshold
-
-            # Extract detection results
+            results = model.predict(img_np, conf=0.25)
             result = results[0]
 
-            # Draw bounding boxes manually (for full control)
             annotated = img_np.copy()
             for box in result.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
@@ -85,15 +81,11 @@ with tab1:
                 label = result.names[cls_id]
                 text = f"{label} ({conf*100:.1f}%)"
 
-                # Draw rectangle
                 cv2.rectangle(annotated, (x1, y1), (x2, y2), (255, 0, 0), 3)
-                # Draw label background
                 (w, h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
                 cv2.rectangle(annotated, (x1, y1 - 25), (x1 + w, y1), (255, 0, 0), -1)
-                # Put text
                 cv2.putText(annotated, text, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-            # Convert BGR → RGB
             annotated = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
             detected_image = Image.fromarray(annotated)
 
